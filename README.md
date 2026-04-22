@@ -36,23 +36,30 @@ make test
 
 テスト結果例：
 ```
-[==========] Running 6 tests from 2 test suites.
+[==========] Running 9 tests from 3 test suites.
 [----------] Global test environment set-up.
-[----------] 2 tests from AddTest
+[----------] 4 tests from AddTest
 [ RUN      ] AddTest.PositiveNumbers
 [       OK ] AddTest.PositiveNumbers (0 ms)
 [ RUN      ] AddTest.NegativeNumbers
 [       OK ] AddTest.NegativeNumbers (0 ms)
 [ RUN      ] AddTest.MixedNumbers
 [       OK ] AddTest.MixedNumbers (0 ms)
-[----------] 3 tests from MultiplyTest
+[ RUN      ] AddTest.Zero
+[       OK ] AddTest.Zero (0 ms)
+[----------] 4 tests from MultiplyTest
 [ RUN      ] MultiplyTest.PositiveNumbers
 [       OK ] MultiplyTest.PositiveNumbers (0 ms)
 [ RUN      ] MultiplyTest.Zero
 [       OK ] MultiplyTest.Zero (0 ms)
 [ RUN      ] MultiplyTest.NegativeNumbers
 [       OK ] MultiplyTest.NegativeNumbers (0 ms)
-[==========] 6 tests from 2 test suites ran.
+[ RUN      ] MultiplyTest.One
+[       OK ] MultiplyTest.One (0 ms)
+[----------] 1 test from ProgramTest
+[ RUN      ] ProgramTest.RunProgram
+[       OK ] ProgramTest.RunProgram (0 ms)
+[==========] 9 tests from 3 test suites ran.
 ```
 
 ## クリーンアップ
@@ -83,7 +90,7 @@ make clean
   - 標準出力への正常な出力動作検証
 
 **テスト統計:**
-- 総テストケース数: 11
+- 総テストケース数: 9
 - カバレッジ: C0 100%（全行実行）
 
 ## 静的コード解析
@@ -98,7 +105,7 @@ make check
 - **コンパイラ警告チェック** - 厳密なオプション（-Wall -Wextra -Werror）でのビルド
 
 ### 前提条件
-cppchecのインストール:
+cppcheckのインストール:
 ```bash
 sudo apt-get install -y cppcheck
 ```
@@ -200,6 +207,10 @@ GitHub Actionsで自動的にカバレッジ測定が実行され、結果は**A
 - エラー: `make coverage` 実行後に `No executable lines` や gcov がカバレッジデータを出力しない
   - 原因: カバレッジ測定時に `main.c` が C++ コンパイラでコンパイルされるなどコンパイル／リンクの不一致、もしくは `--coverage` フラグがオブジェクトに正しく付与されていない。
   - 対処: `makefile` の `coverage` ルールで `main.c` を `$(CC)`（gcc）で `CFLAGS += $(COVERAGE_FLAGS)` を使ってコンパイルするよう修正。また `CXXFLAGS` にもカバレッジフラグを付加してテスト用オブジェクトにフラグが付くようにしました。カバレッジ要約は `gcovr` を使うと読みやすいので、必要なら `sudo apt-get install -y gcovr lcov` を実行してください。
+
+- エラー: `make coverage-html` 実行時に lcov がエラーで終了する
+  - 原因: 新しいバージョンの lcov では、コンパイル時とカバレッジ収集時のソースパスの不一致（mismatch）や、フィルタ後に空になったカバレッジデータ（unused）に対してデフォルトでエラーを返すようになっていた。
+  - 対処: `lcov --capture` 時に `--ignore-errors mismatch` を付加し、`lcov --remove` 時に `--ignore-errors mismatch,unused` を付加するよう `makefile` を修正しました。`genhtml` にも `--ignore-errors mismatch` を追加しています。
 
 - CIエラー: `actions/upload-artifact@v3 の非推奨` -> ワークフロー失敗
   - 対処: `.github/workflows/ci.yml` を更新して `actions/upload-artifact@v4` に変更しました。また `actions/checkout` を `@v4` に更新し、Node.js 24 へのオプトインを行うため `env: FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true` を設定しました。
