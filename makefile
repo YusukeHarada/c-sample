@@ -3,6 +3,8 @@ CXX = g++
 CFLAGS = -Wall -Wextra
 CXXFLAGS = -Wall -Wextra
 TARGET = main
+SIZE = size
+NM   = nm
 SRC = main.c
 OUT_DIR = out
 OBJ = $(OUT_DIR)/main.o
@@ -19,6 +21,10 @@ TEST_SRC = test_main.cc
 
 $(TARGET): $(OBJ)
 	$(CC) $(CFLAGS) -o $(TARGET) $(OBJ)
+	@echo ""
+	@echo "=== Memory Usage (Footprint) ==="
+	@$(SIZE) $(TARGET)
+	@echo "================================"
 
 $(OBJ): $(SRC)
 	@mkdir -p $(OUT_DIR)
@@ -76,6 +82,8 @@ check:
 	cppcheck --enable=all --suppress=missingIncludeSystem --error-exitcode=1 $(SRC) main.h
 	@echo "Checking with strict compiler warnings..."
 	$(CC) -Wall -Wextra -Werror -c $(SRC) -o /tmp/check.o
+	@echo "Checking memory footprint detail..."
+	@$(NM) --print-size --size-sort --reverse-sort $(OUT_DIR)/main_obj.o
 	@echo "Static analysis completed successfully!"
 
 clean:
