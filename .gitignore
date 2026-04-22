@@ -1,0 +1,23 @@
+# Build artifacts
+out/
+main
+*.o
+*.a
+*.so
+
+# Coverage files
+*.gcov
+*.gcda
+*.gcno
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Temporary files
+tmp/
+*.tmp

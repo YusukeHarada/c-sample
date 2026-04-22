@@ -1,0 +1,52 @@
+name: CI Build
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libgtest-dev cppcheck gcovr lcov
+
+    - name: Build with make
+      run: make
+
+    - name: Run unit tests
+      run: make test
+
+    - name: Static code analysis with cppcheck
+      run: |
+        cppcheck --enable=all --suppress=missingIncludeSystem --error-exitcode=1 main.c main.h
+
+    - name: Build check with strict warnings
+      run: |
+        gcc -Wall -Wextra -Werror -c main.c -o /tmp/main_check.o
+
+    - name: Run coverage measurement
+      run: make coverage
+
+    - name: Generate HTML coverage report
+      run: make coverage-html
+      continue-on-error: true
+
+    - name: Upload coverage reports
+      uses: actions/upload-artifact@v3
+      if: always()
+      with:
+        name: coverage-report
+        path: out/coverage/
+
+    - name: Clean up
+      if: always()
+      run: make clean
+
