@@ -28,13 +28,16 @@ $(OBJ): $(SRC)
 test: $(OUT_DIR)/$(TEST_TARGET)
 	./$(OUT_DIR)/$(TEST_TARGET)
 
-$(OUT_DIR)/$(TEST_TARGET): $(OUT_DIR)/main_test.o
+$(OUT_DIR)/$(TEST_TARGET): $(OUT_DIR)/main_obj.o $(OUT_DIR)/main_test.o
 	@mkdir -p $(OUT_DIR)
-	$(CXX) $(CXXFLAGS) -o $(OUT_DIR)/$(TEST_TARGET) $(OUT_DIR)/main_test.o $(GTEST_FLAGS)
+	$(CXX) $(CXXFLAGS) -o $(OUT_DIR)/$(TEST_TARGET) $(OUT_DIR)/main_obj.o $(OUT_DIR)/main_test.o $(GTEST_FLAGS)
 
-$(OUT_DIR)/main_test.o: $(TEST_SRC) $(SRC)
+$(OUT_DIR)/main_obj.o: $(SRC)
 	@mkdir -p $(OUT_DIR)
-	$(CXX) $(CXXFLAGS) -c $(SRC) -o $(OUT_DIR)/main_obj.o
+	$(CC) $(CFLAGS) -c $(SRC) -o $(OUT_DIR)/main_obj.o
+
+$(OUT_DIR)/main_test.o: $(TEST_SRC)
+	@mkdir -p $(OUT_DIR)
 	$(CXX) $(CXXFLAGS) -c $(TEST_SRC) -o $(OUT_DIR)/main_test.o
 
 # Coverage measurement

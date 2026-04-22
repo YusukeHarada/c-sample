@@ -3,9 +3,7 @@
 #include <cstdlib>
 
 extern "C" {
-    int add(int a, int b);
-    int multiply(int a, int b);
-    void run_program();
+    #include "main.h"
 }
 
 // add関数のテスト
@@ -59,8 +57,3 @@ TEST(ProgramTest, RunProgram)
     SUCCEED();  // テストが正常に実行されたことを確認
 }
 
-int main(int argc, char **argv)
-{
-    ::testing::InitGoogleTest(&argc, argv);
-    return RUN_ALL_TESTS();
-}
