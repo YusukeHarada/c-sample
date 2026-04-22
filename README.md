@@ -188,3 +188,40 @@ GitHub Actionsで自動的にカバレッジ測定が実行され、結果は**A
 | `make coverage` | C0カバレッジレポートをコンソールに表示 |
 | `make coverage-html` | HTMLカバレッジレポートを生成 |
 | `make clean` | カバレッジデータを含むすべての成果物を削除 |
+
+## 既知の問題と対処 (トラブルシューティング)
+
+以下は本リポジトリで私が遭遇し対応した主なエラーと、その原因および対処方法の要約です。CIやローカルで同様の問題が出た場合は参考にしてください。
+
+- エラー: `undefined reference to 'add' / 'multiply' / 'run_program'` (リンクエラー)
+  - 原因: テストバイナリのリンク時に `main.c` のオブジェクトが含まれていなかった、または `main()` がテスト側に重複定義されていた。
+  - 対処: `test_main.cc` から `main()` を削除し、`main.h` に `#ifdef __cplusplus extern "C" { ... }` ガードを追加。`main.c` は `gcc` (Cコンパイラ) でコンパイルし、テストは `g++` でリンクして `main_obj.o` を含めるよう `makefile` を修正しました。
+
+- エラー: `make coverage` 実行後に `No executable lines` や gcov がカバレッジデータを出力しない
+  - 原因: カバレッジ測定時に `main.c` が C++ コンパイラでコンパイルされるなどコンパイル／リンクの不一致、もしくは `--coverage` フラグがオブジェクトに正しく付与されていない。
+  - 対処: `makefile` の `coverage` ルールで `main.c` を `$(CC)`（gcc）で `CFLAGS += $(COVERAGE_FLAGS)` を使ってコンパイルするよう修正。また `CXXFLAGS` にもカバレッジフラグを付加してテスト用オブジェクトにフラグが付くようにしました。カバレッジ要約は `gcovr` を使うと読みやすいので、必要なら `sudo apt-get install -y gcovr lcov` を実行してください。
+
+- CIエラー: `actions/upload-artifact@v3 の非推奨` -> ワークフロー失敗
+  - 対処: `.github/workflows/ci.yml` を更新して `actions/upload-artifact@v4` に変更しました。また `actions/checkout` を `@v4` に更新し、Node.js 24 へのオプトインを行うため `env: FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true` を設定しました。
+
+- CIでの Google Test のビルド失敗
+  - 原因: 環境毎に `libgtest-dev` の配布方法が異なるため、単純に `libgtest-dev` をインストールするだけではリンクできないケースがありました。
+  - 対処: ワークフロー側でシステムの `libgtest-dev` のパスに合わせて `-I/usr/include/gtest` を指定し、テストビルド時にコンパイラ／リンカがライブラリを参照できるように `CXXFLAGS` / `LDFLAGS` を設定しました。
+
+- cppcheck によるCI失敗
+  - 対処: `makefile` の `check` ターゲットで `cppcheck --error-exitcode=1` を指定し、CI とローカルで同じ挙動になるよう統一しました。
+
+再現コマンド（ローカル）:
+```bash
+make         # ビルド
+make test    # 単体テスト実行
+make check   # 静的解析
+make coverage      # カバレッジ（コンソール要約）
+make coverage-html # HTMLレポート生成
+```
+
+もし上記でもカバレッジが出力されない場合、まず `.gcda` / `.gcno` ファイルの有無を確認してください:
+```bash
+find . -name '*.gcda' -o -name '*.gcno' -print
+```
+無ければ再ビルド（`make clean && make coverage`）を行い、再現ログを貼ってください。私の方でさらに原因を追います。

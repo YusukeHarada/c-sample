@@ -42,10 +42,11 @@ $(OUT_DIR)/main_test.o: $(TEST_SRC)
 
 # Coverage measurement
 coverage: CXXFLAGS += $(COVERAGE_FLAGS)
+coverage: CFLAGS += $(COVERAGE_FLAGS)
 coverage: clean
 	@mkdir -p $(OUT_DIR)
 	@echo "Building with coverage instrumentation..."
-	$(CXX) $(CXXFLAGS) -c $(SRC) -o $(OUT_DIR)/main_obj.o
+	$(CC) $(CFLAGS) -c $(SRC) -o $(OUT_DIR)/main_obj.o
 	$(CXX) $(CXXFLAGS) -c $(TEST_SRC) -o $(OUT_DIR)/main_test.o
 	$(CXX) $(CXXFLAGS) -o $(OUT_DIR)/$(TEST_TARGET) $(OUT_DIR)/main_obj.o $(OUT_DIR)/main_test.o $(GTEST_FLAGS)
 	@echo "Running tests with coverage..."
@@ -61,15 +62,18 @@ coverage: clean
 # HTML coverage report
 coverage-html: coverage
 	@echo "Generating HTML coverage report..."
-	lcov --directory $(OUT_DIR) --capture --output-file $(OUT_DIR)/coverage/coverage.info 2>/dev/null || true
-	lcov --remove $(OUT_DIR)/coverage/coverage.info '/usr/include/*' '/usr/local/*' --output-file $(OUT_DIR)/coverage/coverage_filtered.info 2>/dev/null || true
-	genhtml $(OUT_DIR)/coverage/coverage_filtered.info --output-directory $(OUT_DIR)/coverage/html 2>/dev/null || echo "Note: genhtml not available. Install lcov for HTML reports."
+	@mkdir -p $(OUT_DIR)/coverage
+	# キャプチャ時
+	lcov --directory $(OUT_DIR) --capture --output-file $(OUT_DIR)/coverage/coverage.info --ignore-errors mismatch
+	# 不要なファイルの除去時 (unused を追加)
+	lcov --remove $(OUT_DIR)/coverage/coverage.info '/usr/include/*' '/usr/local/*' '*/test_main.cc' --output-file $(OUT_DIR)/coverage/coverage_filtered.info --ignore-errors mismatch,unused	# HTML生成
+	genhtml $(OUT_DIR)/coverage/coverage_filtered.info --output-directory $(OUT_DIR)/coverage/html --ignore-errors mismatch
 	@echo "HTML report generated at: $(OUT_DIR)/coverage/html/index.html"
 
 # Static code analysis
 check:
 	@echo "Running cppcheck..."
-	cppcheck --enable=all --suppress=missingIncludeSystem $(SRC) main.h
+	cppcheck --enable=all --suppress=missingIncludeSystem --error-exitcode=1 $(SRC) main.h
 	@echo "Checking with strict compiler warnings..."
 	$(CC) -Wall -Wextra -Werror -c $(SRC) -o /tmp/check.o
 	@echo "Static analysis completed successfully!"
