@@ -35,22 +35,40 @@ jobs:
         make
 
     - name: Run unit tests
-      run: make test
+      id: test
+      run: |
+        make test
+        echo "✅ Unit tests passed"
+        echo "test_status=passed" >> $GITHUB_OUTPUT
 
     - name: Static code analysis with cppcheck
+      id: cppcheck
       run: |
         cppcheck --enable=all --suppress=missingIncludeSystem --error-exitcode=1 main.c main.h
+        echo "✅ Static analysis passed"
+        echo "cppcheck_status=passed" >> $GITHUB_OUTPUT
 
     - name: Build check with strict warnings
+      id: build_check
       run: |
         gcc -Wall -Wextra -Werror -c main.c -o /tmp/main_check.o
+        echo "✅ Build check with warnings passed"
+        echo "build_check_status=passed" >> $GITHUB_OUTPUT
 
     - name: Run coverage measurement
-      run: make coverage
+      id: coverage
+      run: |
+        make coverage
+        echo "✅ Coverage measurement completed"
+        echo "coverage_status=completed" >> $GITHUB_OUTPUT
       continue-on-error: true
 
     - name: Generate HTML coverage report
-      run: make coverage-html
+      id: coverage_html
+      run: |
+        make coverage-html
+        echo "✅ HTML coverage report generated"
+        echo "coverage_html_status=generated" >> $GITHUB_OUTPUT
       continue-on-error: true
 
     - name: Check coverage directory
@@ -64,6 +82,27 @@ jobs:
         name: coverage-report
         path: out/coverage/
         if-no-files-found: warn
+
+    - name: Final status check
+      if: always()
+      run: |
+        if [[ "${{ steps.test.outcome }}" == "success" && "${{ steps.cppcheck.outcome }}" == "success" && "${{ steps.build_check.outcome }}" == "success" ]]; then
+          echo "🎉 All CI checks passed successfully!"
+          echo "✅ Build: OK"
+          echo "✅ Tests: OK"
+          echo "✅ Static Analysis: OK"
+          echo "✅ Warnings Check: OK"
+          echo "✅ Coverage: Generated (check artifacts)"
+          exit 0
+        else
+          echo "❌ Some CI checks failed!"
+          echo "Build: ${{ steps.test.outcome == 'success' && '✅ OK' || '❌ FAILED' }}"
+          echo "Tests: ${{ steps.cppcheck.outcome == 'success' && '✅ OK' || '❌ FAILED' }}"
+          echo "Static Analysis: ${{ steps.build_check.outcome == 'success' && '✅ OK' || '❌ FAILED' }}"
+          echo "Warnings Check: ${{ steps.coverage.outcome == 'success' && '✅ OK' || '⚠️  SKIPPED' }}"
+          echo "Coverage: ${{ steps.coverage_html.outcome == 'success' && '✅ OK' || '⚠️  SKIPPED' }}"
+          exit 1
+        fi
 
     - name: Clean up
       if: always()

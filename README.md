@@ -76,6 +76,34 @@ make clean
 - Google Test がリンクできない: `libgtest` のライブラリがシステムにインストールされていないか、ビルド済みでない可能性があります。必要に応じてシステムの gtest をビルドしてください。
 - カバレッジが出ない: `.gcda`/`.gcno` が生成されているか確認し、`make clean && make coverage` を再実行してください。
 
+## CI/CD（GitHub Actions）
+
+このプロジェクトはGitHub Actionsで自動テストを実行します。
+
+### トリガー条件
+- `main` ブランチへのpush時
+- `main` ブランチへのpull request時
+
+### 実行される処理
+
+| ステップ | 説明 |
+|--------|------|
+| ビルド | `make` でメインプログラムをビルド |
+| 単体テスト | `make test` でGoogle Testを実行 |
+| 静的解析 | `cppcheck` でコード品質をチェック |
+| 警告チェック | 厳密なコンパイラ警告でのビルド確認 |
+| カバレッジ測定 | `make coverage` でカバレッジデータを収集 |
+| HTMLレポート生成 | `make coverage-html` でHTMLレポートを作成 |
+
+### 結果の確認
+GitHub Actionsタブでワークフロー実行結果を確認できます。各ステップの成功/失敗が明確に表示され、最終ステップで全体のPass/NGがまとめられます。
+
+- **成功時**: 🎉 All CI checks passed successfully! と各項目の✅表示
+- **失敗時**: ❌ Some CI checks failed! と各項目の❌表示
+
+### カバレッジレポートの確認
+ワークフロー実行後、Artifactsから「coverage-report」をダウンロードし、`coverage/html/index.html` をブラウザで開いて詳細を確認できます。
+
 ---
 
 更に私の方で `make` / `make test` を実行して動作確認を希望される場合は、実行して確認します（環境に依存する外部パッケージが必要になることがあります）。
