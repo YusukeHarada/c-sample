@@ -1,5 +1,8 @@
 name: CI Build
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 on:
   push:
     branches: [ main ]
@@ -16,18 +19,20 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y build-essential cmake libgtest-dev cppcheck gcovr lcov
+        sudo apt-get install -y build-essential pkg-config libgtest-dev cppcheck gcovr lcov
 
-    - name: Build and install Google Test
+    - name: Set up Google Test
       run: |
-        cd /usr/src/gtest
-        sudo cmake .
-        sudo cmake --build . --config Release
-        sudo cp lib/*.a /usr/local/lib/
-        sudo ldconfig
+        # Find gtest library path
+        GTEST_PATH=$(dpkg -L libgtest-dev | grep -E "lib.*gtest\.a$" | head -1 | xargs dirname)
+        echo "GTEST_PATH=$GTEST_PATH" >> $GITHUB_ENV
+        ls -la $GTEST_PATH
 
     - name: Build with make
-      run: make
+      run: |
+        export CXXFLAGS="-I/usr/include/gtest"
+        export LDFLAGS="-L/usr/lib/x86_64-linux-gnu"
+        make
 
     - name: Run unit tests
       run: make test
@@ -63,6 +68,7 @@ jobs:
     - name: Clean up
       if: always()
       run: make clean
+
 
 
 
