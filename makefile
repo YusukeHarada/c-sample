@@ -90,5 +90,22 @@ clean:
 	rm -rf $(OUT_DIR) $(TARGET)
 	rm -f *.gcov *.gcda *.gcno
 
-.PHONY: clean test check coverage coverage-html
+# Doxygen documentation generation
+docs:
+	@echo "Generating Doxygen documentation..."
+	@which doxygen > /dev/null || (echo "Error: doxygen is not installed. Install with: sudo apt-get install doxygen graphviz" && exit 1)
+	doxygen Doxyfile
+	@echo "Documentation generated at: docs/html/index.html"
+	@echo "Open with: xdg-open docs/html/index.html"
+
+# Clean Doxygen documentation
+docs-clean:
+	@echo "Cleaning Doxygen documentation..."
+	rm -rf docs/
+
+# View documentation in default browser
+docs-view: docs
+	@which xdg-open > /dev/null && xdg-open docs/html/index.html || echo "Please open docs/html/index.html manually"
+
+.PHONY: clean test check coverage coverage-html docs docs-clean docs-view
 

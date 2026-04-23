@@ -1,0 +1,61 @@
+# Git attributes for line ending normalization
+# Reference: https://help.github.com/articles/dealing-with-line-endings/
+
+# Auto detect text files and normalize line endings to LF
+* text=auto
+
+# C source code
+*.c text eol=lf
+*.h text eol=lf
+*.cc text eol=lf
+*.cpp text eol=lf
+*.hpp text eol=lf
+*.o diff=binary
+*.a diff=binary
+
+# Build and configuration files
+Makefile text eol=lf
+makefile text eol=lf
+*.mk text eol=lf
+.gitignore text eol=lf
+.gitattributes text eol=lf
+.nojekyll text eol=lf
+
+# Documentation
+*.md text eol=lf
+*.txt text eol=lf
+README text eol=lf
+LICENSE text eol=lf
+CONTRIBUTING text eol=lf
+GIT_FLOW text eol=lf
+
+# Scripts
+*.sh text eol=lf
+*.bash text eol=lf
+
+# Shell scripts with shebang
+scripts/** text eol=lf
+
+# YAML and JSON configs
+*.yml text eol=lf
+*.yaml text eol=lf
+*.json text eol=lf
+.github/workflows/** text eol=lf
+
+# Doxygen
+Doxyfile text eol=lf
+
+# Binary files
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.mov binary
+*.mp4 binary
+*.mp3 binary
+*.gz binary
+*.zip binary
+*.7z binary
+*.ttf binary
+*.otf binary

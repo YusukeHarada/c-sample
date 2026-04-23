@@ -2,6 +2,26 @@
 
 C言語で書かれた簡単なサンプルプロジェクトです。Google Test を使った単体テスト、静的解析、カバレッジ測定のための `Makefile` を同梱しています。
 
+> 📖 このプロジェクトは **git-flow** ブランチ戦略を採用しています。
+> 詳細は [GIT_FLOW.md](GIT_FLOW.md) を参照してください。
+
+## 貢献について
+
+このプロジェクトへのご貢献をお待ちしています！
+詳細は [CONTRIBUTING.md](CONTRIBUTING.md) を参照してください。
+
+## ブランチ構成
+
+| ブランチ | 用途 | 説明 |
+|---------|------|------|
+| `main` | 本番リリース | リリース可能な安定版のみ |
+| `develop` | 開発統合 | 次のリリース向けの統合ブランチ |
+| `feature/*` | 機能開発 | 新機能の開発ブランチ |
+| `release/*` | リリース準備 | リリース前の準備ブランチ |
+| `hotfix/*` | 緊急修正 | 本番環境のバグ修正 |
+
+詳細は [GIT_FLOW.md](GIT_FLOW.md) を参照してください。
+
 ## 主要ファイル構成
 - `main.c`, `main.h` - 実装とヘッダ
 - `test_main.cc` - Google Test によるテスト
@@ -97,6 +117,83 @@ make clean
 
 ### 結果の確認
 GitHub Actionsタブでワークフロー実行結果を確認できます。各ステップの成功/失敗が明確に表示され、最終ステップで全体のPass/NGがまとめられます。
+
+## ドキュメント生成（Doxygen）
+
+このプロジェクトは **Doxygen** を使用してAPIドキュメントを自動生成し、**GitHub Pages** で公開しています。
+
+### 前提条件（ローカル実行時）
+```bash
+sudo apt-get install -y doxygen graphviz
+```
+
+### ドキュメント生成方法
+
+#### ローカルで生成
+```bash
+doxygen Doxyfile
+```
+
+生成されたドキュメントは `docs/html/index.html` に出力されます。
+
+#### ブラウザで確認
+```bash
+# ブラウザで開く（Linux）
+xdg-open docs/html/index.html
+
+# または
+firefox docs/html/index.html
+```
+
+### GitHub Pages での公開
+
+#### 1. リポジトリ設定
+GitHub リポジトリの **Settings** → **Pages** で以下を設定してください：
+
+- **Source**: `Deploy from a branch`
+- **Branch**: `gh-pages` / `/ (root)`
+
+#### 2. 自動デプロイ
+- `main` ブランチへの `push` 時に、GitHub Actions ワークフロー（`.github/workflows/doxygen.yml`）が自動的に実行されます
+- ドキュメントが生成され、`gh-pages` ブランチにデプロイされます
+
+#### 3. ドキュメントへのアクセス
+生成されたドキュメントは以下のURLで公開されます：
+```
+https://YusukeHarada.github.io/c-sample/
+```
+
+### ドキュメント形式
+
+ドキュメンテーションは Doxygen 形式のコメントで記述されています：
+
+```c
+/**
+ * @brief 関数の簡潔な説明
+ *
+ * @param param1 パラメータ1の説明
+ * @param param2 パラメータ2の説明
+ * @return 戻り値の説明
+ *
+ * @example
+ * @code
+ * function_name(arg1, arg2); // 使用例
+ * @endcode
+ */
+```
+
+### トラブルシューティング
+
+| 問題 | 原因 | 解決方法 |
+|------|------|--------|
+| `doxygen: command not found` | Doxygenがインストールされていない | `sudo apt-get install -y doxygen` でインストール |
+| ドキュメントが生成されない | Doxyfile の設定が不正 | `Doxyfile` を確認し、`INPUT` が正しいパスに変更 |
+| GitHub Pages で 404 が出る | gh-pages ブランチが存在しない | GitHub Actions ワークフローが正常に実行されるまで待機 |
+| Pages 設定が見つからない | 非公開リポジトリまたは権限不足 | リポジトリを公開するか、権限を確認 |
+
+### 参考資料
+- [Doxygen 公式ドキュメント](https://www.doxygen.nl/)
+- [GitHub Pages ドキュメント](https://docs.github.com/en/pages)
 
 - **成功時**: 🎉 All CI checks passed successfully! と各項目の✅表示
 - **失敗時**: ❌ Some CI checks failed! と各項目の❌表示
