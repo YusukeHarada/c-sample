@@ -32,6 +32,10 @@ jobs:
       run: |
         doxygen Doxyfile
         
+    - name: Create .nojekyll file
+      run: |
+        touch docs/.nojekyll
+        
     - name: Upload artifact
       uses: actions/upload-artifact@v4
       with:
