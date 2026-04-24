@@ -10,7 +10,7 @@ OUT_DIR = out
 OBJ = $(OUT_DIR)/main.o
 
 # Google test flags
-GTEST_FLAGS = -lgtest -lgtest_main -pthread
+GTEST_FLAGS = -L/usr/lib/x86_64-linux-gnu -lgtest -lgtest_main -pthread
 
 # Coverage flags
 COVERAGE_FLAGS = --coverage -fprofile-arcs -ftest-coverage

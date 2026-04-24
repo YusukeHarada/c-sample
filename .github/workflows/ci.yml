@@ -23,10 +23,13 @@ jobs:
 
     - name: Set up Google Test
       run: |
-        # Find gtest library path
-        GTEST_PATH=$(dpkg -L libgtest-dev | grep -E "lib.*gtest\.a$" | head -1 | xargs dirname)
-        echo "GTEST_PATH=$GTEST_PATH" >> $GITHUB_ENV
-        ls -la $GTEST_PATH
+        # Ubuntu 20.04以前の場合のみビルドが必要。22.04以降はスキップしてよい
+        if [ ! -f /usr/lib/x86_64-linux-gnu/libgtest.a ]; then
+          cd /usr/src/googletest
+          sudo cmake .
+          sudo cmake --build . --target install
+        fi
+        echo "✅ gtest ready: $(ls /usr/lib/x86_64-linux-gnu/libgtest*.a 2>/dev/null || ls /usr/local/lib/libgtest*.a)"
 
     - name: Build with make
       run: |
