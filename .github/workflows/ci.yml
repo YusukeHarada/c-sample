@@ -21,16 +21,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y build-essential pkg-config libgtest-dev cppcheck gcovr lcov
 
-    - name: Set up Google Test
-      run: |
-        # Ubuntu 20.04以前の場合のみビルドが必要。22.04以降はスキップしてよい
-        if [ ! -f /usr/lib/x86_64-linux-gnu/libgtest.a ]; then
-          cd /usr/src/googletest
-          sudo cmake .
-          sudo cmake --build . --target install
-        fi
-        echo "✅ gtest ready: $(ls /usr/lib/x86_64-linux-gnu/libgtest*.a 2>/dev/null || ls /usr/local/lib/libgtest*.a)"
-
     - name: Build with make
       run: |
         export CXXFLAGS="-I/usr/include/gtest"
