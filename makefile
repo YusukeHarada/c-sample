@@ -40,7 +40,7 @@ $(OUT_DIR)/$(TEST_TARGET): $(OUT_DIR)/main_obj.o $(OUT_DIR)/main_test.o
 
 $(OUT_DIR)/main_obj.o: $(SRC)
 	@mkdir -p $(OUT_DIR)
-	$(CC) $(CFLAGS) -c $(SRC) -o $(OUT_DIR)/main_obj.o
+	$(CC) $(CFLAGS) -DTESTING -c $(SRC) -o $(OUT_DIR)/main_obj.o
 
 $(OUT_DIR)/main_test.o: $(TEST_SRC)
 	@mkdir -p $(OUT_DIR)

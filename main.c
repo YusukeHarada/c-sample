@@ -58,8 +58,10 @@ void run_program()
  *
  * @return 0 on successful execution
  */
+#ifndef TESTING
 int main()
 {
     run_program();
     return 0;
 }
+#endif // TESTING
