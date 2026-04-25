@@ -126,7 +126,6 @@ firefox docs/html/index.html
 ```
 
 https://YusukeHarada.github.io/c-sample/
-```
 
 ### ドキュメント形式
 
