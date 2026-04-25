@@ -20,8 +20,6 @@ jobs:
 
     - name: Build with make
       run: |
-        export CXXFLAGS="-I/usr/include/gtest"
-        export LDFLAGS="-L/usr/lib/x86_64-linux-gnu"
         make
 
     - name: Run unit tests
