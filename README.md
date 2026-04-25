@@ -125,21 +125,6 @@ xdg-open docs/html/index.html
 firefox docs/html/index.html
 ```
 
-### GitHub Pages での公開
-
-#### 1. リポジトリ設定
-GitHub リポジトリの **Settings** → **Pages** で以下を設定してください：
-
-- **Source**: `Deploy from a branch`
-- **Branch**: `gh-pages` / `/ (root)`
-
-#### 2. 自動デプロイ
-- `main` ブランチへの `push` 時に、GitHub Actions ワークフロー（`.github/workflows/doxygen.yml`）が自動的に実行されます
-- ドキュメントが生成され、`gh-pages` ブランチにデプロイされます
-
-#### 3. ドキュメントへのアクセス
-生成されたドキュメントは以下のURLで公開されます：
-```
 https://YusukeHarada.github.io/c-sample/
 ```
 
@@ -182,5 +167,3 @@ https://YusukeHarada.github.io/c-sample/
 ワークフロー実行後、Artifactsから「coverage-report」をダウンロードし、`coverage/html/index.html` をブラウザで開いて詳細を確認できます。
 
 ---
-
-更に私の方で `make` / `make test` を実行して動作確認を希望される場合は、実行して確認します（環境に依存する外部パッケージが必要になることがあります）。
