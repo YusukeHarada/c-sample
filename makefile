@@ -52,7 +52,7 @@ coverage: CFLAGS += $(COVERAGE_FLAGS)
 coverage: clean
 	@mkdir -p $(OUT_DIR)
 	@echo "Building with coverage instrumentation..."
-	$(CC) $(CFLAGS) -c $(SRC) -o $(OUT_DIR)/main_obj.o
+	$(CC) $(CFLAGS) -DTESTING -c $(SRC) -o $(OUT_DIR)/main_obj.o
 	$(CXX) $(CXXFLAGS) -c $(TEST_SRC) -o $(OUT_DIR)/main_test.o
 	$(CXX) $(CXXFLAGS) -o $(OUT_DIR)/$(TEST_TARGET) $(OUT_DIR)/main_obj.o $(OUT_DIR)/main_test.o $(GTEST_FLAGS)
 	@echo "Running tests with coverage..."
