@@ -1,68 +1,40 @@
 name: CI Build
-
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
-
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
     - uses: actions/checkout@v4
-
     - name: Install dependencies
       run: |
         sudo apt-get update
         sudo apt-get install -y build-essential pkg-config libgtest-dev cppcheck gcovr lcov
-
     - name: Build with make
-      run: |
-        make
-
+      run: make
     - name: Run unit tests
       id: test
-      run: |
-        make test
-        echo "✅ Unit tests passed"
-        echo "test_status=passed" >> $GITHUB_OUTPUT
-
+      run: make test
     - name: Static code analysis with cppcheck
       id: cppcheck
-      run: |
-        cppcheck --enable=all --suppress=missingIncludeSystem --error-exitcode=1 main.c main.h
-        echo "✅ Static analysis passed"
-        echo "cppcheck_status=passed" >> $GITHUB_OUTPUT
-
+      run: cppcheck --enable=all --suppress=missingIncludeSystem --error-exitcode=1 main.c main.h
     - name: Build check with strict warnings
       id: build_check
-      run: |
-        gcc -Wall -Wextra -Werror -c main.c -o /tmp/main_check.o
-        echo "✅ Build check with warnings passed"
-        echo "build_check_status=passed" >> $GITHUB_OUTPUT
-
+      run: gcc -Wall -Wextra -Werror -c main.c -o /tmp/main_check.o
     - name: Run coverage measurement
       id: coverage
-      run: |
-        make coverage
-        echo "✅ Coverage measurement completed"
-        echo "coverage_status=completed" >> $GITHUB_OUTPUT
+      run: make coverage
       continue-on-error: true
-
     - name: Generate HTML coverage report
       id: coverage_html
-      run: |
-        make coverage-html
-        echo "✅ HTML coverage report generated"
-        echo "coverage_html_status=generated" >> $GITHUB_OUTPUT
+      run: make coverage-html
       continue-on-error: true
-
     - name: Check coverage directory
       run: ls -la out/ || echo "out directory does not exist"
       continue-on-error: true
-
     - name: Upload coverage reports
       uses: actions/upload-artifact@v4
       if: always() && hashFiles('out/coverage/**') != ''
@@ -70,7 +42,6 @@ jobs:
         name: coverage-report
         path: out/coverage/
         if-no-files-found: warn
-
     - name: Final status check
       if: always()
       run: |
@@ -91,11 +62,6 @@ jobs:
           echo "Coverage: ${{ steps.coverage_html.outcome == 'success' && '✅ OK' || '⚠️  SKIPPED' }}"
           exit 1
         fi
-
     - name: Clean up
       if: always()
       run: make clean
-
-
-
-
