@@ -1,67 +1,307 @@
+# =============================================================================
+# CI（ビルド以外の価値を出すパイプライン）
+#
+#   build ──┬─ warning_gate   コンパイラ警告がベースラインより増えたら失敗
+#           └─ memory_usage   ROM/RAM 使用率が上限を超えたら失敗
+#   cppcheck                  一般的な不具合は失敗、MISRA は PR 上に注釈で表示
+#   complexity                関数の複雑度を注釈で表示（失敗させない）
+#   unit_test_gtest           Google Test + カバレッジ
+#   unit_test_ceedling        Unity/CMock（Ceedling）+ カバレッジ
+#   metrics_summary           main への push・定期実行時に指標の推移 CSV を更新
+#
+# 結果は各ジョブの Summary と、PR の差分上の注釈で確認できる
+# =============================================================================
 name: CI Build
+
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+  schedule:
+    - cron: "0 15 * * *"      # 毎日 0:00 JST（推移の記録用）
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read              # 前回の推移 CSV をダウンロードするため
+
+env:
+  # 警告を多めに出すフラグ。既存の警告数は ci/warning_baseline.txt で許容し、増加だけを止める
+  STRICT_CFLAGS: "-Wall -Wextra -Wpedantic -Wstrict-prototypes -Wmissing-prototypes -Wconversion"
+  # lizard のしきい値（複雑度 / 関数の行数 / 引数の数）
+  CCN_LIMIT: "10"
+  LENGTH_LIMIT: "60"
+  ARGS_LIMIT: "5"
+
 jobs:
+  # ---------------------------------------------------------------------------
+  # 1. ビルド（成果物とログをコミットに紐付けて残す）
+  # ---------------------------------------------------------------------------
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-    - name: Install dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential pkg-config libgtest-dev cppcheck gcovr lcov
-    - name: Build with make
-      run: make
-    - name: Run unit tests
-      id: test
-      run: make test
-    - name: Static code analysis with cppcheck
-      id: cppcheck
-      run: cppcheck --enable=all --suppress=missingIncludeSystem --error-exitcode=1 main.c main.h
-    - name: Build check with strict warnings
-      id: build_check
-      run: gcc -Wall -Wextra -Werror -c main.c -o /tmp/main_check.o
-    - name: Run coverage measurement
-      id: coverage
-      run: make coverage
-      continue-on-error: true
-    - name: Generate HTML coverage report
-      id: coverage_html
-      run: make coverage-html
-      continue-on-error: true
-    - name: Check coverage directory
-      run: ls -la out/ || echo "out directory does not exist"
-      continue-on-error: true
-    - name: Upload coverage reports
-      uses: actions/upload-artifact@v4
-      if: always() && hashFiles('out/coverage/**') != ''
-      with:
-        name: coverage-report
-        path: out/coverage/
-        if-no-files-found: warn
-    - name: Final status check
-      if: always()
-      run: |
-        if [[ "${{ steps.test.outcome }}" == "success" && "${{ steps.cppcheck.outcome }}" == "success" && "${{ steps.build_check.outcome }}" == "success" ]]; then
-          echo "🎉 All CI checks passed successfully!"
-          echo "✅ Build: OK"
-          echo "✅ Tests: OK"
-          echo "✅ Static Analysis: OK"
-          echo "✅ Warnings Check: OK"
-          echo "✅ Coverage: Generated (check artifacts)"
-          exit 0
-        else
-          echo "❌ Some CI checks failed!"
-          echo "Build: ${{ steps.test.outcome == 'success' && '✅ OK' || '❌ FAILED' }}"
-          echo "Tests: ${{ steps.cppcheck.outcome == 'success' && '✅ OK' || '❌ FAILED' }}"
-          echo "Static Analysis: ${{ steps.build_check.outcome == 'success' && '✅ OK' || '❌ FAILED' }}"
-          echo "Warnings Check: ${{ steps.coverage.outcome == 'success' && '✅ OK' || '⚠️  SKIPPED' }}"
-          echo "Coverage: ${{ steps.coverage_html.outcome == 'success' && '✅ OK' || '⚠️  SKIPPED' }}"
-          exit 1
-        fi
-    - name: Clean up
-      if: always()
-      run: make clean
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: |
+          make CFLAGS="$STRICT_CFLAGS" 2>&1 | tee build.log
+          echo "commit=${GITHUB_SHA}"     >  build_info.txt
+          echo "run=${GITHUB_RUN_NUMBER}" >> build_info.txt
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: build-output
+          path: |
+            main
+            build.log
+            build_info.txt
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # 2. 解析
+  # ---------------------------------------------------------------------------
+  warning_gate:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-output
+
+      - name: Count compiler warnings
+        run: |
+          mkdir -p metrics
+          {
+            echo "### コンパイラ警告"
+            echo '```'
+            python3 ci/scripts/count_warnings.py build.log \
+              --baseline ci/warning_baseline.txt \
+              --json metrics/warnings.json --list warnings.txt | tee /dev/stderr
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: metrics-warnings
+          path: metrics/warnings.json
+          retention-days: 7
+
+  memory_usage:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: build-output
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install pyelftools
+
+      - name: Check ROM/RAM usage
+        run: |
+          mkdir -p metrics
+          {
+            echo "### ROM/RAM 使用量"
+            echo '```'
+            python3 ci/scripts/memory_usage.py main \
+              --config ci/memory_limits.json \
+              --json metrics/memory.json --csv memory_usage.csv | tee /dev/stderr
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: metrics-memory
+          path: metrics/memory.json
+          retention-days: 7
+
+  cppcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install cppcheck
+        run: sudo apt-get update && sudo apt-get install -y cppcheck
+
+      - name: Run cppcheck (with MISRA addon)
+        run: |
+          mkdir -p metrics
+          cppcheck --quiet --enable=all --inline-suppr \
+            --suppress=missingIncludeSystem \
+            --addon=ci/misra.json \
+            --xml --xml-version=2 --output-file=metrics/cppcheck.xml \
+            main.c main.h
+
+      - name: Annotate results
+        # MISRA 以外の指摘（従来の --error-exitcode=1 相当）は失敗、MISRA は注釈のみ
+        run: python3 ci/scripts/annotate.py cppcheck metrics/cppcheck.xml --fail-on non-misra
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: metrics-cppcheck
+          path: metrics/cppcheck.xml
+          retention-days: 7
+
+  complexity:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install lizard
+
+      - name: Measure complexity
+        run: |
+          mkdir -p metrics
+          python3 -m lizard -l c --csv main.c > metrics/complexity.csv
+
+      - name: Annotate results
+        continue-on-error: true    # 当面は見える化が目的
+        run: |
+          python3 ci/scripts/annotate.py lizard metrics/complexity.csv \
+            --ccn "$CCN_LIMIT" --length "$LENGTH_LIMIT" --args "$ARGS_LIMIT"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: metrics-complexity
+          path: metrics/complexity.csv
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # 3. 単体テスト
+  # ---------------------------------------------------------------------------
+  unit_test_gtest:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: sudo apt-get update && sudo apt-get install -y libgtest-dev gcovr
+
+      - name: Build and run tests with coverage
+        run: |
+          make out/test_main CFLAGS="-Wall -Wextra --coverage" CXXFLAGS="-Wall -Wextra --coverage"
+          ./out/test_main --gtest_output=xml:out/gtest-report.xml
+
+      - name: Coverage report
+        if: always()
+        run: |
+          mkdir -p out/coverage-gtest
+          gcovr -r . --filter 'main\.c$' \
+            --cobertura out/coverage-gtest/cobertura.xml \
+            --html-details out/coverage-gtest/index.html \
+            --txt-summary out | tee coverage.txt
+          {
+            echo "### カバレッジ（Google Test）"
+            echo '```'
+            grep -E '^(lines|functions|branches):' coverage.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Test report
+        if: always()
+        run: python3 ci/scripts/annotate.py junit out/gtest-report.xml
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-report-gtest
+          path: |
+            out/gtest-report.xml
+            out/coverage-gtest/
+          retention-days: 7
+
+  unit_test_ceedling:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install dependencies
+        run: |
+          sudo gem install ceedling -v 1.0.0 --no-document
+          sudo apt-get update && sudo apt-get install -y gcovr
+
+      - name: Run tests with coverage (Unity + CMock)
+        env:
+          LANG: C.UTF-8          # テストコードに日本語コメントがあるため
+          LC_ALL: C.UTF-8
+        run: ceedling gcov:all
+
+      - name: Test report
+        if: always()
+        run: |
+          python3 ci/scripts/annotate.py junit build/artifacts/gcov/junit_tests_report.xml
+          {
+            echo "### カバレッジ（Ceedling）"
+            echo '```'
+            python3 -c "import xml.etree.ElementTree as ET; r = ET.parse('build/artifacts/gcov/gcovr/GcovCoverageCobertura.xml').getroot(); print(f\"lines: {float(r.get('line-rate')) * 100:.1f}%\"); print(f\"branches: {float(r.get('branch-rate')) * 100:.1f}%\")"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-report-ceedling
+          path: |
+            build/artifacts/gcov/junit_tests_report.xml
+            build/artifacts/gcov/gcovr/
+          retention-days: 7
+
+  # ---------------------------------------------------------------------------
+  # 4. 指標の推移（main への push・定期実行・手動実行のとき）
+  #    前回の推移 CSV を取得し、今回の 1 行を追記して成果物として残す
+  # ---------------------------------------------------------------------------
+  metrics_summary:
+    needs: [warning_gate, memory_usage, cppcheck, complexity]
+    if: >-
+      always() &&
+      (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' ||
+       (github.event_name == 'push' && github.ref == 'refs/heads/main'))
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: metrics-*
+          path: metrics
+          merge-multiple: true
+
+      - name: Download previous history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # 直近の完了済み実行から推移 CSV が残っているものを探して取得する（初回は新規作成）
+          for id in $(gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml --branch main \
+                        --status completed --limit 20 --json databaseId -q '.[].databaseId'); do
+            [ "$id" = "$GITHUB_RUN_ID" ] && continue
+            if gh run download "$id" --repo "$GITHUB_REPOSITORY" --name metrics-history --dir prev 2>/dev/null; then
+              cp prev/metrics_history.csv metrics_history.csv
+              echo "前回の推移を取得しました（run $id）"
+              break
+            fi
+          done
+
+      - name: Summarize
+        run: |
+          python3 ci/scripts/summarize.py --metrics-dir metrics \
+            --complexity metrics/complexity.csv --cppcheck metrics/cppcheck.xml \
+            --ccn-limit "$CCN_LIMIT" --history metrics_history.csv
+          {
+            echo "### 指標の推移（直近 10 回）"
+            echo '```'
+            head -n 1 metrics_history.csv | sed '1s/^\xEF\xBB\xBF//'
+            tail -n +2 metrics_history.csv | tail -n 10
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: metrics-history
+          path: metrics_history.csv
+          retention-days: 90

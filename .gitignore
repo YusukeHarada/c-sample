@@ -25,3 +25,14 @@ docs/latex/
 # Temporary files
 tmp/
 *.tmp
+
+# CI generated files
+build/
+metrics/
+build.log
+build_info.txt
+warnings.txt
+memory_usage.csv
+metrics_history.csv
+coverage.txt
+__pycache__/

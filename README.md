@@ -5,6 +5,9 @@ C言語で書かれた簡単なサンプルプロジェクトです。Google Tes
 ## 主要ファイル構成
 - `main.c`, `main.h` - 実装とヘッダ
 - `test_main.cc` - Google Test によるテスト
+- `test/test_main.c` - Unity（Ceedling）による同じ関数のテスト
+- `project.yml` - Ceedling の設定
+- `ci/` - CI 用のスクリプトと設定（警告ベースライン、メモリ上限、MISRA アドオン設定）
 - `makefile` - ビルド / テスト / カバレッジ / 静的解析のターゲット
 - `out/` - ビルド成果物（Makefile が自動作成）
 
@@ -78,25 +81,57 @@ make clean
 
 ## CI/CD（GitHub Actions）
 
-このプロジェクトはGitHub Actionsで自動テストを実行します。
+`main` への push・pull request・毎日の定期実行（0:00 JST）・手動実行で動きます。ビルドだけでなく、品質の指標を自動で取って PR 上に見せることを目的にしています。
 
-### トリガー条件
-- `main` ブランチへのpush時
-- `main` ブランチへのpull request時
+### ジョブ構成
 
-### 実行される処理
+```
+build ──┬─ warning_gate   コンパイラ警告がベースラインより増えたら失敗
+        └─ memory_usage   ROM/RAM 使用率が上限を超えたら失敗
+cppcheck                  MISRA 以外の指摘は失敗、MISRA は PR 上に注釈で表示
+complexity                関数の複雑度がしきい値を超えたら注釈で表示（失敗させない）
+unit_test_gtest           Google Test + カバレッジ（gcovr）
+unit_test_ceedling        Unity/CMock（Ceedling）+ カバレッジ
+metrics_summary           main への push・定期実行時に、指標の推移 CSV を更新
+```
 
-| ステップ | 説明 |
-|--------|------|
-| ビルド | `make` でメインプログラムをビルド |
-| 単体テスト | `make test` でGoogle Testを実行 |
-| 静的解析 | `cppcheck` でコード品質をチェック |
-| 警告チェック | 厳密なコンパイラ警告でのビルド確認 |
-| カバレッジ測定 | `make coverage` でカバレッジデータを収集 |
-| HTMLレポート生成 | `make coverage-html` でHTMLレポートを作成 |
+| ジョブ | 使うツール | 判定 |
+|:--|:--|:--|
+| build | gcc, make | 警告を多めに出すフラグ（`STRICT_CFLAGS`）でビルド |
+| warning_gate | `ci/scripts/count_warnings.py` | 警告数 > `ci/warning_baseline.txt` で失敗 |
+| memory_usage | `ci/scripts/memory_usage.py`（pyelftools） | `ci/memory_limits.json` の上限超過で失敗 |
+| cppcheck | Cppcheck + MISRA アドオン、`ci/scripts/annotate.py` | MISRA 以外の指摘で失敗 |
+| complexity | lizard、`ci/scripts/annotate.py` | 失敗させない（見える化のみ） |
+| unit_test_gtest | Google Test, gcovr | テスト失敗で失敗 |
+| unit_test_ceedling | Ceedling 1.0（Unity, CMock）, gcovr | テスト失敗で失敗 |
+| metrics_summary | `ci/scripts/summarize.py`, gh | 推移 CSV（`metrics-history`）を 90 日保持 |
 
 ### 結果の確認
-GitHub Actionsタブでワークフロー実行結果を確認できます。各ステップの成功/失敗が明確に表示され、最終ステップで全体のPass/NGがまとめられます。
+
+- 各ジョブの Summary に、警告数・ROM/RAM 使用率・静的解析の指摘一覧・テスト結果・カバレッジが表示されます。
+- PR の「Files changed」では、Cppcheck・lizard の指摘が該当行に注釈として表示されます（GitHub の仕様で、1 ステップあたり種類ごとに最大 10 件）。
+- カバレッジの HTML レポートは Artifacts の `test-report-gtest` / `test-report-ceedling` からダウンロードできます。
+- 指標の推移は Artifacts の `metrics-history`（CSV）で確認できます。
+
+### 運用のしかた
+
+- 警告を減らしたら `ci/warning_baseline.txt` の値を下げてコミットします（ベースラインは手元で `python3 ci/scripts/count_warnings.py build.log --baseline ci/warning_baseline.txt --update` でも更新できます）。
+- `ci/memory_limits.json` はホスト PC 向けの仮想ターゲット（ROM 16KB / RAM 2KB）です。実機では `regions` にメモリ領域のアドレスとサイズを定義します。
+- MISRA の指摘はルール番号のみ表示されます。ルール本文は MISRA 規格書（有償）を参照してください。Cppcheck の MISRA アドオンは一部ルールのみの対応で、準拠の証跡にはなりません。
+
+### ローカルでの実行
+
+```bash
+# 単体テスト（Unity / Ceedling 版）
+gem install ceedling -v 1.0.0
+LANG=C.UTF-8 ceedling gcov:all        # 結果: build/artifacts/gcov/
+
+# 解析スクリプト（Python 3.10 以上）
+pip install lizard pyelftools
+make CFLAGS="-Wall -Wextra -Wpedantic -Wstrict-prototypes -Wmissing-prototypes -Wconversion" 2>&1 | tee build.log
+python3 ci/scripts/count_warnings.py build.log --baseline ci/warning_baseline.txt
+python3 ci/scripts/memory_usage.py main --config ci/memory_limits.json
+```
 
 ## ドキュメント生成（Doxygen）
 
@@ -158,11 +193,3 @@ https://YusukeHarada.github.io/c-sample/
 ### 参考資料
 - [Doxygen 公式ドキュメント](https://www.doxygen.nl/)
 - [GitHub Pages ドキュメント](https://docs.github.com/en/pages)
-
-- **成功時**: 🎉 All CI checks passed successfully! と各項目の✅表示
-- **失敗時**: ❌ Some CI checks failed! と各項目の❌表示
-
-### カバレッジレポートの確認
-ワークフロー実行後、Artifactsから「coverage-report」をダウンロードし、`coverage/html/index.html` をブラウザで開いて詳細を確認できます。
-
----

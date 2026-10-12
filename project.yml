@@ -1,0 +1,61 @@
+# =============================================================================
+# Ceedling 設定（Unity + CMock によるホスト上の単体テスト）
+#   対象: Ceedling 1.0 系（Ruby 3.0 以上）
+#   実行: ceedling gcov:all   … テスト実行 + カバレッジ（Cobertura / HTML）
+#         ceedling test:all   … テスト実行のみ
+#   Google Test 版（test_main.cc）と同じ関数を対象に、Unity 版のテストを test/ に置いている
+# =============================================================================
+:project:
+  :use_mocks: TRUE
+  :use_test_preprocessor: :none
+  :build_root: build
+  :test_file_prefix: test_
+  :default_tasks:
+    - test:all
+
+:plugins:
+  :enabled:
+    - report_tests_pretty_stdout
+    - report_tests_log_factory      # JUnit XML を出力（CI で結果表示に使用）
+    - gcov                          # カバレッジ計測
+
+:report_tests_log_factory:
+  :reports:
+    - junit
+
+:paths:
+  :test:
+    - +:test/**
+    - -:test/support
+  :source:
+    - ./                            # 本サンプルはソースがリポジトリ直下にある
+  :include:
+    - ./
+  :support:
+    - test/support
+
+:defines:
+  :test:
+    - TESTING                       # main.c の main() をテストビルドから除外する
+
+:cmock:
+  :mock_prefix: mock_
+  :when_no_prototypes: :warn
+  :enforce_strict_ordering: TRUE
+  :plugins:
+    - :ignore
+    - :ignore_arg
+    - :expect_any_args
+    - :return_thru_ptr
+
+:gcov:
+  :summaries: TRUE
+  :utilities:
+    - gcovr
+  :reports:
+    - Cobertura                     # GitHub / GitLab のカバレッジ表示用
+    - HtmlDetailed                  # 人が見る用
+  :gcovr:
+    :report_include: "^main\\.c$"   # テストコード・Unity 本体を集計対象から外す
+    :html_medium_threshold: 75
+    :html_high_threshold: 90
