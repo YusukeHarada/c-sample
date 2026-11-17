@@ -81,7 +81,7 @@ make clean
 
 ## CI/CD（GitHub Actions）
 
-`main` への push・pull request・毎日の定期実行（0:00 JST）・手動実行で動きます。ビルドだけでなく、品質の指標を自動で取って PR 上に見せることを目的にしています。
+`main` への push・pull request・手動実行で動きます。ビルドだけでなく、品質の指標を自動で取って PR 上に見せることを目的にしています。
 
 ### ジョブ構成
 
@@ -92,7 +92,7 @@ cppcheck                  MISRA 以外の指摘は失敗、MISRA は PR 上に�
 complexity                関数の複雑度がしきい値を超えたら注釈で表示（失敗させない）
 unit_test_gtest           Google Test + カバレッジ（gcovr）
 unit_test_ceedling        Unity/CMock（Ceedling）+ カバレッジ
-metrics_summary           main への push・定期実行時に、指標の推移 CSV を更新
+metrics_summary           main への push・手動実行時に、指標の推移 CSV を更新
 ```
 
 | ジョブ | 使うツール | 判定 |
