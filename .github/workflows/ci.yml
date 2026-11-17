@@ -127,10 +127,13 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y cppcheck
 
       - name: Run cppcheck (with MISRA addon)
+        # staticFunction（ubuntu-26.04 の cppcheck 2.19 で検出されるようになった）は抑止する。main.h の関数は単体テストから呼ぶ公開 API のため static にできない
         run: |
+          cppcheck --version
           mkdir -p metrics
           cppcheck --quiet --enable=all --inline-suppr \
             --suppress=missingIncludeSystem \
+            --suppress=staticFunction \
             --addon=ci/misra.json \
             --xml --xml-version=2 --output-file=metrics/cppcheck.xml \
             main.c main.h
